@@ -4,9 +4,7 @@ import GDAX
 from ryan_tools import *
 import fuckit
 import time
-
-
-
+import authenticate
 
 class OrderBook():
     last = None
@@ -15,7 +13,7 @@ class OrderBook():
     WS_URL = "wss://ws-feed.gdax.com"
     orders = pd.DataFrame(columns = ['type', 'side', 'price', 'order_id', 'remaining_size', 'product_id', 'sequence', 'time'])
     trades = pd.DataFrame(columns = ['side', 'size', 'price','time'])
-    product_id = 'ETH-USD'
+    product_id = None
     messages = []
     sequence = None
     ws = None
@@ -40,8 +38,8 @@ class OrderBook():
                         if last_sequence != sequence -1:
                             print('Issue in Sequence, Resetting Orderbook')
                             self.set_orderbook()
-                            
                             last_sequence = None
+                            
                         last_sequence = sequence
 
                         
@@ -98,10 +96,9 @@ class OrderBook():
         print ("### closed ###")
     
     def on_open(self, ws):
-        sub = {
-            "type": "subscribe",
-            "product_id": self.product_id
-        }
+        
+        sub = authenticate.get_sub(self.product_id)
+
         print ("Subscribing to feed...")
         ws.send(json.dumps(sub))
 
@@ -115,6 +112,7 @@ class OrderBook():
         ws.on_open = self.on_open
         ws.run_forever(http_proxy_host = '127.0.0.1', http_proxy_port= '3120')
         self.ws = ws
+        
     def set_order_book(self):
         print('calculating time_difference')
         self.time_difference = pd.to_datetime(self.client.getTime()['iso']) -   datetime.datetime.fromtimestamp(self.client.getTime()['epoch'])
@@ -148,6 +146,9 @@ class OrderBook():
         
         self.sequence = int(order_book['sequence'])
         
+    def download_history(self):
+        return 
+
         
     def get_spread(self):
         orders = self.orders.copy()
@@ -160,6 +161,11 @@ class OrderBook():
         self.client = GDAX.PublicClient()
         threading.Thread(target = self.stream_data).start()
         threading.Thread(target = self.message_checker ).start()
-        self.set_order_book()
+        threading.Thread(target = self.set_order_book ).start()
 
 
+
+    def __init__(self, product_id = 'ETH-USD' ):
+        self.product_id = product_id
+        self.start()
+        
