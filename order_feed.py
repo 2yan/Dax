@@ -117,7 +117,7 @@ class OrderBook():
         self.ws = ws
     def set_order_book(self):
         print('calculating time_difference')
-        self.time_difference = pd.to_datetime(x.client.getTime()['iso']) -   datetime.datetime.fromtimestamp(x.client.getTime()['epoch'])
+        self.time_difference = pd.to_datetime(self.client.getTime()['iso']) -   datetime.datetime.fromtimestamp(self.client.getTime()['epoch'])
         print('Time Difference ', self.time_difference)
         
         print('waiting for orderbook to download')
@@ -163,6 +163,3 @@ class OrderBook():
         self.set_order_book()
 
 
-        
-x = OrderBook()
-x.start()

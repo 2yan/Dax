@@ -8,6 +8,27 @@ import order_feed
 product_id = 'ETH-USD'
 
 
+def account_vals(string = False):
+    amount = pd.DataFrame(client.getAccounts())
+    amount.index = amount['currency']
+    if not string:
+        for thing in['available','balance', 'hold']:
+            amount[thing] = pd.to_numeric(amount[thing])
+    return amount
+
+
+def get_usd_values():    
+    data = account_vals()
+    for index in data.index:
+        amount = data.loc[index, 'balance']
+        price = 1
+        if index != 'USD':
+            price = float(client.getProduct24HrStats(product = index + '-USD')['last'])
+        data.loc[index, 'value'] = price * amount
+    return data
+def dollar_amount():
+    return get_usd_values()['value'].sum()
+
 def login():
     config = pd.read_csv('config.csv', index_col = 'iden')
     key = config.loc['key', 'vals']
@@ -16,13 +37,7 @@ def login():
     authClient = GDAX.AuthenticatedClient(key, secret, passphrase)
     return authClient
 
-def account_vals(string = False):
-    amount = pd.DataFrame(client.getAccounts())
-    amount.index = amount['currency']
-    if not string:
-        for thing in['available','balance', 'hold']:
-            amount[thing] = pd.to_numeric(amount[thing])
-    return amount
+
 
 
 def get_price( product = product_id ):
@@ -120,11 +135,15 @@ def s(ask, amount, wait = 60):
                 print(client.cancelOrder(order['id']))
                 return None
 
+book =  None
+client = None
 
-
-
-book = order_feed.OrderBook()
-book.start()
-client = login()
+def start(start_book = False):
+    global book
+    global client
+    if start_book:
+        book = order_feed.OrderBook()
+        book.start()
+    client = login()
 
 
