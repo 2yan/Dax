@@ -1,0 +1,19 @@
+- Text sentiment
+- Short term swing
+- Sound categorization
+- Long term swing
+- Machine learning on Candles
+- book based scalps
+- Long and Short term
+- book analysis
+
+
+Goal one: 
+Calculate MACDs
+Pull Candles for Time ranges
+Create a candle initalization and update system
+Initialization System:
+pull data for each candle size Starting from the nearest minute
+write global candle system that works given a numebr of seconds
+the update sequence needs to run in parallel, watching the 'last' price value
+and updating the candles constantly

@@ -5,6 +5,7 @@ from ryan_tools import *
 import fuckit
 import time
 import authenticate
+import tzlocal
 
 class OrderBook():
     last = None
@@ -145,9 +146,7 @@ class OrderBook():
         self.trades['size'] = pd.to_numeric(self.trades['price'])
         
         self.sequence = int(order_book['sequence'])
-        
-    def download_history(self):
-        return 
+        print('OrderBook Downloaded')
 
         
     def get_spread(self):
@@ -158,7 +157,7 @@ class OrderBook():
     
         
     def start(self):
-        self.client = GDAX.PublicClient()
+        self.client = GDAX.PublicClient(product_id = self.product_id)
         threading.Thread(target = self.stream_data).start()
         threading.Thread(target = self.message_checker ).start()
         threading.Thread(target = self.set_order_book ).start()
@@ -168,4 +167,29 @@ class OrderBook():
     def __init__(self, product_id = 'ETH-USD' ):
         self.product_id = product_id
         self.start()
+
+
+
+def download_candles(start_time, end_time, amount):
+    if amount > 200:
+        raise ValueError('amount Can not be greater than 200')
+    if start_time > end_time:
+        temp = start_time
+        start_time = end_time
+        end_time = temp
+        del temp
         
+    zone = tzlocal.get_localzone()
+    client = book.client
+    end_time = zone.localize(end_time)
+    start_time = zone.localize(start_time)
+    granularity = (end_time - start_time).total_seconds()/amount  
+    columns = ['time', 'low', 'high', 'open', 'close', 'volume']
+    print(start_time)
+    print(end_time)
+    print(granularity)
+    data = pd.DataFrame(data =  client.getProductHistoricRates('',  client.productId, start_time.isoformat(), end_time.isoformat(), granularity ), columns = columns)
+    data['time'] = data['time'].apply(datetime.datetime.fromtimestamp)
+    return data
+    
+
