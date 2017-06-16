@@ -169,7 +169,16 @@ class OrderBook():
         self.start()
 
 
+def last_minute():
+    now = datetime.datetime.now()
+    end_time = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute - 1 )
+    start_time = end_time - relativedelta(minutes = 200)
+    
+    return download_candles(start_time, end_time, 200)
 
+
+
+    
 def download_candles(start_time, end_time, amount):
     if amount > 200:
         raise ValueError('amount Can not be greater than 200')
@@ -185,11 +194,10 @@ def download_candles(start_time, end_time, amount):
     start_time = zone.localize(start_time)
     granularity = (end_time - start_time).total_seconds()/amount  
     columns = ['time', 'low', 'high', 'open', 'close', 'volume']
-    print(start_time)
-    print(end_time)
-    print(granularity)
     data = pd.DataFrame(data =  client.getProductHistoricRates('',  client.productId, start_time.isoformat(), end_time.isoformat(), granularity ), columns = columns)
     data['time'] = data['time'].apply(datetime.datetime.fromtimestamp)
     return data
     
 
+class abathur():
+    'Define Later'
