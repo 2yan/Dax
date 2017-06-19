@@ -169,14 +169,14 @@ class OrderBook():
         self.start()
 
 
+
+#-----------------------------------------------------------------------------------------------
 def last_minute():
     now = datetime.datetime.now()
     end_time = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute - 1 )
     start_time = end_time - relativedelta(minutes = 200)
     
     return download_candles(start_time, end_time, 200)
-
-
 
     
 def download_candles(start_time, end_time, amount):
@@ -199,5 +199,67 @@ def download_candles(start_time, end_time, amount):
     return data
     
 
-class abathur():
-    'Define Later'
+class Abathur():
+    book = None
+
+    def __init__(self, orderbook = None,product_id = 'ETH-USD'):
+        if orderbook == None:
+            orderbook = OrderBook(product_id)
+        self.book = orderbook
+
+
+    def support_resistance(self, remove_fakes = 0.995, cutoff = 0.95):
+        orders = self.book.orders.copy()
+        orders['remaining_size'] = pd.to_numeric(orders['remaining_size'])
+        if remove_fakes != None:
+            orders = orders[orders['remaining_size'] <= orders['remaining_size'].quantile(remove_fakes)]
+    
+        orders['price'] = orders['price'].apply(int)
+        buy = orders[orders['side'] == 'buy'].groupby('price')['remaining_size'].sum()
+        sell = orders[orders['side'] == 'sell'].groupby('price')['remaining_size'].sum()
+
+        buy = buy[buy >= buy.quantile(cutoff)]
+        sell = sell[sell >= sell.quantile(cutoff)]
+
+        buy = pd.DataFrame(buy)
+        sell = pd.DataFrame(sell)
+        buy['side'] = 'buy'
+        sell['side'] = 'sell'
+        
+        return buy.append(sell)
+    
+    def chart_sr(self, data = None):
+        if type(data) == type(None):
+            data = self.support_resistance(cutoff = 0.00)
+        lower = self.book.last * 0.93
+        upper = self.book.last * 1.07
+        data = data.loc[lower:upper]
+        return sea.categorical.barplot(data.index, data['remaining_size'])
+        
+    def nearest_sr(self, data = None):
+        'data = can be custom from  support_resistance()'
+        if type(data) == type(None):
+            data = self.support_resistance(remove_fakes = 0.995, cutoff = 0.95)
+
+        sell =data[data['side'] == 'sell']
+        buy = data[data['side'] == 'buy']
+            
+        resistance = sell.index.min()
+        support = buy.index.max()
+        
+        return {'support': (support,buy.loc[support,'remaining_size'] ), 'resistance':(resistance, sell.loc[resistance,'remaining_size'])}
+
+
+
+abathur = Abathur()
+last = 0
+
+while True:
+    if abathur.book.last != None:
+        if last != abathur.book.last:
+            print(abathur.nearest_sr() )
+            print(abathur.book.last)
+            print('.................')
+            last = abathur.book.last
+
+		
