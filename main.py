@@ -4,12 +4,18 @@ import threading
 import time
 import pickle
 import random
-import order_feed
+from order_feed import Abathur
+
 product_id = 'ETH-USD'
 
 
+
+
+
+
+
 def account_vals(string = False):
-    amount = pd.DataFrame(client.getAccounts())
+    amount = pd.DataFrame(abathur.book.client.getAccounts())
     amount.index = amount['currency']
     if not string:
         for thing in['available','balance', 'hold']:
@@ -41,9 +47,10 @@ def login():
 
 
 def get_price( product = product_id ):
-    return book.get_spread()
+    return abathur.book.get_spread()
 
 def place_order(price, size, kind , order_type = 'limit',  product_id = product_id):
+    size = str(round(float(size),2))
     paramaters = {
         'price': price,
         'size': size,
@@ -55,12 +62,12 @@ def place_order(price, size, kind , order_type = 'limit',  product_id = product_
     while not done:
         paramaters['price'] = str(round(float(paramaters['price']), 2))
         if kind == 'buy':
-            status = client.buy(paramaters)
+            status = abathur.book.client.buy(paramaters)
             paramaters['price'] = get_price()[1] - 0.01
             print(paramaters)
             
         if kind == 'sell':
-            status = client.sell(paramaters)
+            status = abathur.book.client.sell(paramaters)
             paramaters['price'] = get_price()[0] + 0.01
             
         if 'reject_reason' not in status.keys():
@@ -69,81 +76,101 @@ def place_order(price, size, kind , order_type = 'limit',  product_id = product_
         print(status)
 
 def buy_able_amount(dollars):
-    price = book.get_spread()[1]
-    return round(dollars/price,7)
+    price = abathur.book.get_spread()[1]
+    return round(dollars/price,7) - 0.02
 
+def cancel_all():
+    abathur.book.client.cancelAll()
+    
+def dump():
+    etherium = account_vals().loc['ETH', 'balance']
 
-def b(bid, amount, wait = 60):
-        amount = round(amount, 7)
-        print('Trying to buy at', bid )
-        start_time = datetime.datetime.now()
-        done = False
-        order = None
-        last_status = None
-        while not done:
-            if order == None:   
-                order = place_order(bid, amount, 'buy')
-            if order != None:
-                print('.', end = '')
-                try :
-                    status = client.getOrder(order['id'])['status']
-                except KeyError:
-                    print(order)
-                    return
-                if last_status != status:
-                    print(status)
-                    last_status = status
+    done = False
+    order = None
+    last_status = None
+    while not done:
+        bid = abathur.book.get_spread()[0] + 0.01
+        if order == None:   
+            order = place_order(bid, etherium, 'sell')
+        if order != None:
+            print('.', end = '')
+            print(order)
+            print()
+            try :
+                status = abathur.book.client.getOrder(order['id'])['status']
+            except KeyError:
+                print(order)
+                return
+            if last_status != status:
+                print(status)
+                last_status = status
+            if status == 'done':
+                cost = float(abathur.book.client.getOrder(order['id'])['price'])
+                print('Sold at ', cost )
+                return cost
+            if float(order['price']) - bid > 0.03:
+                cancel_all()
+                order = None
 
-                if status == 'done':
-                    cost = float(client.getOrder(order['id'])['price'])
-                    print('Purchased at ', cost )
-                    return cost
-            current_time = datetime.datetime.now()
-            if (current_time - start_time).seconds >= wait and order != None:
-                print('cancelling')
-                print(client.cancelOrder(order['id']))
-                return None
-            
-def s(ask, amount, wait = 60):
-        amount = round(amount, 7)
-        print('Trying to sell at', ask )
-        start_time = datetime.datetime.now()
-        done = False
-        order = None
-        last_status = None
+def gobble():
+    
+    
+    done = False
+    order = None
+    last_status = None
+    while not done:
+        etherium = buy_able_amount(account_vals().loc['USD', 'balance'])
+        ask = abathur.book.get_spread()[1] - 0.01
+        if order == None:   
+            order = place_order(ask, etherium, 'buy')
+        if order != None:
+            print('.', end = '')
+            print(order)
+            print(ask)
+            try :
+                status = abathur.book.client.getOrder(order['id'])['status']
+            except KeyError:
+                print(order)
+                return
+            if last_status != status:
+                print(status)
+                last_status = status
+            if status == 'done':
+                cost = float(abathur.book.client.getOrder(order['id'])['price'])
+                print('Purchased at', cost )
+                return cost
+            if ask - float(order['price']) > 0.03:
+                cancel_all()
+                order = None
+                
+def hold_line(low_point, high_point):
+    current = 'out'
+    extra_last = 0
+    
+    while True:
+        now = abathur.book.last
+        bid, ask = abathur.book.get_spread()
+        if bid > ask:
+            abathur.book.ws.close()
+        if abathur.book.last < low_point and current == 'in':
+            dump()
+            current = 'out'
+        if abathur.book.last > high_point and current == 'out':
+            gobble()
+            current = 'in'
+        if now != extra_last:
+            print(now)
+            extra_last = now
 
-        while not done:
-            if order == None:   
-                order = place_order(ask, amount, 'sell')
-            if order != None:
-                print('.', end = '')
-                try :
-                    status = client.getOrder(order['id'])['status']
-                except KeyError:
-                    print(order)
-                    return
-                if last_status != status:
-                    print(status)
-                    last_status = status
-                if status == 'done':
-                    cost = float(client.getOrder(order['id'])['price'])
-                    print('Sold at ', cost )
-                    return cost
-            current_time = datetime.datetime.now()
-            if ((current_time - start_time).seconds >= wait) and order != None:
-                print('cancelling')
-                print(client.cancelOrder(order['id']))
-                return None
+def get_stats():
+    return client.getProduct24HrStats(product  = 'ETH-USD')
 
-book =  None
-client = None
-
-def start(start_book = False):
-    global book
-    global client
-    if start_book:
-        book = order_feed.OrderBook()
-        book.start()
-    client = login()
-
-
+paramaters = {
+        'price': 210,
+        'size': 5.71,
+        'post_only':True,
+        'product_id':'ETH-USD',
+        'type' : 'limit'
+        }
+client = login()
+abathur = Abathur()

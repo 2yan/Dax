@@ -8,6 +8,7 @@ import authenticate
 import tzlocal
 
 class OrderBook():
+
     last = None
     time_difference = None
     client = None
@@ -50,27 +51,28 @@ class OrderBook():
 
         
     def parse_message(self, data):
+        
         with fuckit:
             for column in ['price', 'remaining_size', 'size']:
                 data[column] = pd.to_numeric(data[column])
-                
-        if data['type'] == 'done':
-            iden = data['order_id']
-            length = len(self.orders)
-            self.orders.drop(self.orders.index[self.orders.index == iden], inplace = True )
 
-        if data['type'] == 'open':
-            iden = data['order_id']
-            data['time'] = pd.to_datetime(data['time']) + self.time_difference
-            self.orders.loc[iden] = data
+            if data['type'] == 'done':
+                iden = data['order_id']
+                length = len(self.orders)
+                self.orders.drop(self.orders.index[self.orders.index == iden], inplace = True )
 
-        if data['type'] == 'change':
-            iden = data['order_id']
-            if iden in self.orders.index:
-                new_size = data['new_size']
-                side = data['side']
-                self.orders.loc[iden, 'remaining_size'] = new_size
-                self.orders.loc[iden, 'side'] = side
+            if data['type'] == 'open':
+                iden = data['order_id']
+                data['time'] = pd.to_datetime(data['time']) + self.time_difference
+                self.orders.loc[iden] = data
+
+            if data['type'] == 'change':
+                iden = data['order_id']
+                if iden in self.orders.index:
+                    new_size = data['new_size']
+                    side = data['side']
+                    self.orders.loc[iden, 'remaining_size'] = new_size
+                    self.orders.loc[iden, 'side'] = side
                 
         if data['type'] == 'match':
             maker_id = data['maker_order_id']
@@ -86,16 +88,14 @@ class OrderBook():
         
     def on_error(self, ws, error):
         print (error)
-        if '520' in str(error):
-            self.ws.on_close()
-            self.checker_kill = True
-            self.start()
 
             
             
     def on_close(self, ws):
         print ("### closed ###")
-    
+        self.checker_kill = True
+        threading.Thread(target = self.stream_data).start()
+        threading.Thread(target = self.set_order_book ).start()
     def on_open(self, ws):
         
         sub = authenticate.get_sub(self.product_id)
@@ -105,14 +105,14 @@ class OrderBook():
 
         
     def stream_data(self):
-        ws = websocket.WebSocketApp(self.WS_URL,
+        self.ws = websocket.WebSocketApp(self.WS_URL,
                                     on_message = self.on_message,
                                     on_error = self.on_error,
                                     on_close = self.on_close)
         
-        ws.on_open = self.on_open
-        ws.run_forever(http_proxy_host = '127.0.0.1', http_proxy_port= '3120')
-        self.ws = ws
+        self.ws.on_open = self.on_open
+        self.ws.run_forever(http_proxy_host = '127.0.0.1', http_proxy_port= '3120')
+
         
     def set_order_book(self):
         print('calculating time_difference')
@@ -150,14 +150,25 @@ class OrderBook():
 
         
     def get_spread(self):
+        spread = self.client.getProductOrderBook(level = 1, product = 'ETH-USD')
+        bids = float(spread['bids'][0][0])
+        asks = float(spread['asks'][0][0])
+        return bids, asks
         orders = self.orders.copy()
         buy = orders[orders['side'] == 'buy']
         sell = orders[orders['side']== 'sell']
         return buy['price'].max() , sell['price'].min()
     
+    def __login(self, product_id):
+        config = pd.read_csv('config.csv', index_col = 'iden')
+        key = config.loc['key', 'vals']
+        secret = config.loc['secret', 'vals']
+        passphrase = config.loc['passphrase', 'vals']
+        authClient = GDAX.AuthenticatedClient(key, secret, passphrase)
+        return authClient
         
     def start(self):
-        self.client = GDAX.PublicClient(product_id = self.product_id)
+        self.client = self.__login(product_id = self.product_id)
         threading.Thread(target = self.stream_data).start()
         threading.Thread(target = self.message_checker ).start()
         threading.Thread(target = self.set_order_book ).start()
@@ -167,6 +178,7 @@ class OrderBook():
     def __init__(self, product_id = 'ETH-USD' ):
         self.product_id = product_id
         self.start()
+            
 
 
 
@@ -249,11 +261,10 @@ class Abathur():
         
         return {'support': (support,buy.loc[support,'remaining_size'] ), 'resistance':(resistance, sell.loc[resistance,'remaining_size'])}
 
+    
 
 
-abathur = Abathur()
-last = 0
-
+'''
 while True:
     if abathur.book.last != None:
         if last != abathur.book.last:
@@ -262,4 +273,4 @@ while True:
             print('.................')
             last = abathur.book.last
 
-		
+'''	

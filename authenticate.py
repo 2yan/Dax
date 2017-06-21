@@ -29,10 +29,10 @@ def get_sub(product_id):
     sub = {
         "type": "subscribe",
         "product_id": product_id,
-        'CB-ACCESS-SIGN': signature_b64.decode("utf-8") ,
-        'CB-ACCESS-KEY': key,
-        'CB-ACCESS-PASSPHRASE': passphrase,
-        'CB-ACCESS-TIMESTAMP': timestamp
+        #'CB-ACCESS-SIGN': signature_b64.decode("utf-8") ,
+        #'CB-ACCESS-KEY': key,
+        #'CB-ACCESS-PASSPHRASE': passphrase,
+        #'CB-ACCESS-TIMESTAMP': timestamp
         
     }
 
