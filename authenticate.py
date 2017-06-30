@@ -2,9 +2,6 @@ import json, hmac, hashlib, time, requests, base64
 from requests.auth import AuthBase
 from ryan_tools import *
 
-    
-    
-
 
 def get_sub(product_id):
     try:

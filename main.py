@@ -15,7 +15,7 @@ product_id = 'ETH-USD'
 
 
 def account_vals(string = False):
-    amount = pd.DataFrame(abathur.book.client.getAccounts())
+    amount = pd.DataFrame(client.getAccounts())
     amount.index = amount['currency']
     if not string:
         for thing in['available','balance', 'hold']:
@@ -119,7 +119,7 @@ def gobble():
     order = None
     last_status = None
     while not done:
-        etherium = buy_able_amount(account_vals().loc['USD', 'balance'])
+        etherium = buy_able_amount(account_vals().loc['USD', 'available'])
         ask = abathur.book.get_spread()[1] - 0.01
         if order == None:   
             order = place_order(ask, etherium, 'buy')
@@ -166,11 +166,11 @@ def get_stats():
     return client.getProduct24HrStats(product  = 'ETH-USD')
 
 paramaters = {
-        'price': 210,
-        'size': 5.71,
+        'price': 199,
+        'size': 4.5,
         'post_only':True,
         'product_id':'ETH-USD',
         'type' : 'limit'
         }
 client = login()
-abathur = Abathur()
+
